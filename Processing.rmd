@@ -1,0 +1,137 @@
+---
+title: "Yemen Data Project 2019"
+output: html_notebook
+---
+
+Import libraries and dataset from the Yemen data project
+```{r}
+library(plyr)
+library(tidyverse)
+library(jsonlite)
+library(lubridate)
+full_dataset <- read_csv("YDP.csv")
+calendar <- read_csv("calendar.csv")
+head(full_dataset)
+head(calendar)
+```
+
+Select and rename the columns that we want
+```{r}
+dataset <- full_dataset %>% select(`Incident ID`,Date,Governorate,`Air Strikes Min.`,`Air Strikes Max.`) %>% rename(ID=`Incident ID`, Gov=Governorate, Raid=`Air Strikes Min.`,Max=`Air Strikes Max.`)  %>% mutate(Date=dmy(Date))
+```
+
+Remove all (+) values and inject integers
+```{r}
+MaxClean <- str_replace_all(dataset$Max, "\\+", "")
+Max1 <- as.integer(MaxClean)
+dataset$Max <- Max1
+head(dataset)
+```
+
+Calculate the number of raids irrespective of the number of strikes
+```{r}
+dtotal <- dataset %>% group_by(Date) %>% summarize(Total = sum(Raid))
+#This calculated the number of strikes as the sum of raids
+#dtotal <- dataset %>% group_by(Date) %>% summarize(Total = sum(Max))
+head(dtotal$Total)
+
+
+```
+
+Group by date for each Governorate and calculate the total nuber of raids. (Replace sum(Raid) with sum(Max) to calculate number of strikes)
+```{r}
+dSaada <- dataset %>% group_by(Date) %>% filter(Gov=="Saada") %>% summarize (Saada = sum(Raid))
+dTaiz <- dataset %>% group_by(Date) %>% filter(Gov=="Taiz") %>% summarize (Taiz = sum(Raid))
+dSanaa <- dataset %>% group_by(Date) %>% filter(Gov=="Sanaa") %>% summarize (Sanaa = sum(Raid))
+dHajja <- dataset %>% group_by(Date) %>% filter(Gov=="Hajja") %>% summarize (Hajja = sum(Raid))
+dHudaydah <- dataset %>% group_by(Date) %>% filter(Gov=="Hudaydah") %>% summarize (Hodeidah = sum(Raid))
+dMarib <- dataset %>% group_by(Date) %>% filter(Gov=="Marib") %>% summarize (Marib = sum(Raid))
+dAmanatalAsimah <- dataset %>% group_by(Date) %>% filter(Gov=="Amanat al Asimah") %>% summarize (`Amanat al Asimah` = sum(Raid))
+dJawf <- dataset %>% group_by(Date) %>% filter(Gov=="Jawf") %>% summarize (Jawf = sum(Raid))
+dBayda <- dataset %>% group_by(Date) %>% filter(Gov=="Bayda") %>% summarize (Bayda = sum(Raid))
+dLahj <- dataset %>% group_by(Date) %>% filter(Gov=="Lahj") %>% summarize (Lahj = sum(Raid))
+dAmran <- dataset %>% group_by(Date) %>% filter(Gov=="Amran") %>% summarize (Amran = sum(Raid))
+dShabwa <- dataset %>% group_by(Date) %>% filter(Gov=="Shabwa") %>% summarize (Shabwa = sum(Raid))
+dAden <- dataset %>% group_by(Date) %>% filter(Gov=="Aden") %>% summarize (Aden = sum(Raid))
+dIbb <- dataset %>% group_by(Date) %>% filter(Gov=="Ibb") %>% summarize (Ibb = sum(Raid))
+dDhamar <- dataset %>% group_by(Date) %>% filter(Gov=="Dhamar") %>% summarize (Dhamar = sum(Raid))
+dDhalie <- dataset %>% group_by(Date) %>% filter(Gov=="Dhalie") %>% summarize (Dhalie = sum(Raid))
+dAbyan <- dataset %>% group_by(Date) %>% filter(Gov=="Abyan") %>% summarize (Abyan = sum(Raid))
+dMahwit <- dataset %>% group_by(Date) %>% filter(Gov=="Mahwit") %>% summarize (Mahwit = sum(Raid))
+dRaymah <- dataset %>% group_by(Date) %>% filter(Gov=="Raymah") %>% summarize (Raymah = sum(Raid))
+dHadramawt <- dataset %>% group_by(Date) %>% filter(Gov=="Hadramawt") %>% summarize (Hadramawt = sum(Raid))
+```
+
+Combine all the tables
+```{r}
+combined_dataset<-join_all(list(dtotal,dSaada,dTaiz,dSanaa,dHajja,dHudaydah,dMarib,dAmanatalAsimah,dJawf,dBayda,dLahj,dAmran,dShabwa,dAden,dIbb,dDhamar,dDhalie,dAbyan,dMahwit,dRaymah,dHadramawt), by='Date', type='left')
+
+combined_alldates <- join_all (list(calendar,combined_dataset), by="Date", type="left")
+
+#to replace missing values with zero
+allcalendardata <- combined_alldates %>% replace(is.na(.), 0)
+
+head(allcalendardata[63:68,])
+
+combined_dataset_rev <- combined_alldates %>% map_df(rev)
+head(combined_dataset_rev)
+```
+
+Add the Audio classification
+```{r}
+catfunction <- function(x) {
+    if(x==0){
+	dcategory = "file '0,mp3'"
+}else if (x <= 5 & x > 0){
+	dcategory = "file '1.mp3'"
+}else if (x <= 10 & x > 5){
+	dcategory = "file '2.mp3'"
+}else if (x <= 15 & x > 10){
+	dcategory = "file '3.mp3'"
+}else if (x <= 20 & x > 15){
+	dcategory = "file '4.mp3'"
+}else if (x <= 25 & x > 20){
+	dcategory = "file '5.mp3'"
+}else if (x <= 30 & x > 25){
+	dcategory = "file '6.mp3'"
+}else if (x <= 35 & x > 30){
+	dcategory = "file '7.mp3'"
+}else if (x <= 40 & x > 35){
+	dcategory = "file '8.mp3'"
+}else if (x <= 45 & x > 40){
+	dcategory = "file '9.mp3'"
+}else if (x <= 50 & x > 45){
+	dcategory = "file '10.mp3'"
+}else if (x <= 55 & x > 50){
+	dcategory = "file '11.mp3'"
+}else if (x <= 60 & x > 55){
+	dcategory = "file '12.mp3'"
+}else{
+	dcategory = "file '13.mp3'"
+}
+}
+AudioCategory <- unlist(lapply(allcalendardata$Total,catfunction))
+AudioCategory<-as.data.frame(AudioCategory)
+
+write_csv(AudioCategory, "AudioCat.csv")
+```
+
+Export the calendar data
+```{r}
+calendardata <- combined_alldates %>% select(Date,Total) %>% rename(day=Date, value=Total)
+toJSON(calendardata)
+write_json(calendardata, "YemenCalendar.json")
+write_csv(calendardata, "YemenCalendar.csv", na = "0")
+```
+
+Export data as JSON
+```{r}
+
+toJSON(combined_alldates)
+toJSON(combined_dataset_rev)
+write_json(combined_alldates, "YemenData.json")
+write_json(combined_dataset_rev, "YemenDataRev.json")
+write_csv(combined_alldates, "rprocessed.csv", na = "0")
+write_csv(combined_dataset_rev, "rprocessedRev.csv", na = "0")
+
+```
